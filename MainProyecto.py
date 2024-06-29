@@ -16,9 +16,25 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import numpy as np
 
-def haversine(lat1, lon1, lat2, lon2):
+def haversine(cordenada1,cordenada2):
     #Función para calcular la distancia entre 2 puntos a partir de la longitud
-    pass
+    lat1,lon1 =cordenada1
+    lat2,lon2 =cordenada2
+    # Convertir grados a radianes
+    lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
+    
+    # Fórmula de Haversine
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+    a = math.sin(dlat / 2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    
+    # Radio de la Tierra en kilómetros
+    R = 6371.0
+    distance = R * c
+    
+    return distance
+
 def ejecutar_query_sqlite(database_name, table_name, columns='*', where_column=None, where_value=None):
     """
     Ejecuta una consulta SQL en una base de datos SQLite y retorna una lista con los resultados.
@@ -36,21 +52,16 @@ def ejecutar_query_sqlite(database_name, table_name, columns='*', where_column=N
     # Conectar a la base de datos SQLite
     conn = sqlite3.connect(database_name)
     cursor = conn.cursor()
-
     # Crear la consulta SQL
     query = f'SELECT {columns} FROM {table_name}'
     if where_column and where_value is not None:
         query += f' WHERE {where_column} = ?'
-
     # Ejecutar la consulta SQL
     cursor.execute(query, (where_value,) if where_column and where_value is not None else ())
-
     # Obtener los resultados de la consulta
     resultados = cursor.fetchall()
-
     # Cerrar la conexión
     conn.close()
-
     return resultados
 
 def agregar_df_a_sqlite(df, database_name, table_name):
@@ -64,18 +75,19 @@ def agregar_df_a_sqlite(df, database_name, table_name):
     """
     # Conectar a la base de datos SQLite
     conn = sqlite3.connect(database_name)
-    
     # Agregar el DataFrame a la tabla SQLite
     df.to_sql(table_name, conn, if_exists='replace', index=False)
-    
     # Cerrar la conexión
     conn.close()
+
 #documentacion=https://github.com/TomSchimansky/TkinterMapView?tab=readme-ov-file#create-path-from-position-list
+
 def get_country_city(lat,long):
     country = tkintermapview.convert_coordinates_to_country(lat, long)
     print(country)
     city = tkintermapview.convert_coordinates_to_city(lat, long)
     return country,city
+
 # Definir la función para convertir UTM a latitud y longitud
 def utm_to_latlong(easting, northing, zone_number, zone_letter):
     # Crear el proyector UTM
@@ -84,9 +96,11 @@ def utm_to_latlong(easting, northing, zone_number, zone_letter):
     # Convertir UTM a latitud y longitud
     longitude, latitude = utm_proj(easting, northing, inverse=True)
     return round(latitude,2), round(longitude,2)
+
 def insertar_data(data:list):
     pass
     #necesitamos convertir las coordenadas UTM a lat long
+
 def combo_event2(value):
     try:
         marker_2.delete()
@@ -95,8 +109,7 @@ def combo_event2(value):
     result=ejecutar_query_sqlite('progra2024_final.db', 'personas_coordenadas',columns='Latitude,Longitude,Nombre,Apellido', where_column='RUT', where_value=value)
     nombre_apellido=str(result[0][2])+' '+str(result[0][3])
     marker_2 = map_widget.set_marker(result[0][0], result[0][1], text=nombre_apellido)
-   
-    
+       
 def combo_event(value):
     pass
     mapas.set_address("moneda, santiago, chile")
@@ -104,6 +117,7 @@ def combo_event(value):
     mapas.set_zoom(15)
     address = tkintermapview.convert_address_to_coordinates("London")
     print(address)
+    
 def center_window(window, width, height):
     # Obtener el tamaño de la ventana principal
     root.update_idletasks()
@@ -128,11 +142,20 @@ def setup_toplevel(window):
 
     label = ctk.CTkLabel(window, text="ToplevelWindow")
     label.pack(padx=20, pady=20)
+
 def calcular_distancia(RUT1,RUT2):
-    pass
+    direccion1= ejecutar_query_sqlite('progra2024_final.db', 'personas_coordenadas', columns='Latitude,Longitude', where_column='RUT', where_value=RUT1)
+    direccion2= ejecutar_query_sqlite('progra2024_final.db', 'personas_coordenadas', columns='Latitude,Longitude', where_column='RUT', where_value=RUT2)
+    if direccion1 and direccion2:
+        lat1, lan1 =direccion1[0]
+        lat2, lan2 =direccion2[0]
+        return haversine(lat1,lan1,lat2,lan2)
+    return None
+
 def guardar_data(row_selector):
     print(row_selector.get())
     print(row_selector.table.values)
+
 def editar_panel(root):
     global toplevel_window
     if toplevel_window is None or not toplevel_window.winfo_exists():
@@ -140,15 +163,18 @@ def editar_panel(root):
         setup_toplevel(toplevel_window)
     else:
         toplevel_window.focus()
+
 # Función para manejar la selección del archivo
 def seleccionar_archivo():
     archivo = filedialog.askopenfilename(filetypes=[("Archivos CSV", "*.csv")])
     if archivo:
         print(f"Archivo seleccionado: {archivo}")
         mostrar_datos(archivo)
+
 def on_scrollbar_move(*args):
     canvas.yview(*args)
     canvas.bbox("all")
+
 def leer_archivo_csv(ruta_archivo):
     try:
         datos = pd.read_csv(ruta_archivo)
@@ -172,6 +198,9 @@ def mostrar_datos(datos):
     boton_imprimir = ctk.CTkButton(
         master=data_panel_superior, text="Eliminar dato", command=lambda: editar_panel(root),fg_color='purple',hover_color='red')
     boton_imprimir.grid(row=0, column=3, padx=(10, 0))
+    frame_scrollable = ctk.CTkScrollableFrame(master=home_frame, label_text="Frame")
+    frame_scrollable.grid(row=1, column=0, padx=20, pady=10, sticky="nsew")
+    
 def select_frame_by_name(name):
     home_button.configure(fg_color=("gray75", "gray25") if name == "home" else "transparent")
     frame_2_button.configure(fg_color=("gray75", "gray25") if name == "frame_2" else "transparent")
@@ -370,14 +399,10 @@ optionmenu_1 = ctk.CTkOptionMenu(third_frame_top, dynamic_resizing=True,
                                                         values=["Value 1", "Value 2", "Value Long Long Long"],command=lambda value:combo_event(value))
 optionmenu_1.grid(row=0, column=1, padx=5, pady=(5, 5))
 
-
-
-
-
-
 # Seleccionar el marco predeterminado
 select_frame_by_name("home")
 toplevel_window = None
 root.protocol("WM_DELETE_WINDOW", root.quit)
 # Ejecutar el bucle principal de la interfaz
+
 root.mainloop()
