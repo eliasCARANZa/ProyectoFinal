@@ -15,6 +15,7 @@ from CTkMessagebox import CTkMessagebox
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import numpy as np
+from tkinter import ttk
 
 def haversine(cordenada1,cordenada2):
     #Función para calcular la distancia entre 2 puntos a partir de la longitud
@@ -176,10 +177,14 @@ def calcular_distancia(RUT1,RUT2):
         return haversine(lat1,lan1,lat2,lan2)
     return None
 
-def guardar_data(row_selector):
-    print(row_selector.get())
-    print(row_selector.table.values)
-    
+def guardar_data(tree):
+    rows = []
+    for row_id in tree.get_children():
+        row = tree.item(row_id)['values']
+        rows.append(row)
+    df = pd.DataFrame(rows, columns=[col for col in tree['columns']])
+    # Aquí puedes guardar el DataFrame en una base de datos o en un archivo
+    print(df)
 
 def editar_panel(root):
     global toplevel_window
@@ -218,6 +223,43 @@ def leer_archivo_csv(ruta_archivo):
 
 # Función para mostrar los datos en la tabla
 def mostrar_datos(datos):
+    # Limpiar cualquier dato previo en el frame scrollable
+    for widget in scrollable_frame.winfo_children():
+        widget.destroy()
+
+    # Crear estilo para Treeview
+    style = ttk.Style()
+    style.configure("Treeview.Heading", font=("Helvetica", 10, "bold"), background="lightblue", foreground="black")
+    style.configure("Treeview", rowheight=50)
+    style.map("Treeview.Heading", background=[("active", "blue")])
+    style.layout("Treeview", [('Treeview.treearea', {'sticky': 'nswe'})])  # Elimina los bordes
+
+    # Crear Treeview
+    columns = list(datos.columns)
+    tree = ttk.Treeview(scrollable_frame, columns=columns, show='headings', style="Treeview")
+
+    # Configurar encabezados y columnas
+    for col in columns:
+        tree.heading(col, text=col)
+        tree.column(col, anchor=tkinter.CENTER, width=50, stretch=True)  # Ajusta el ancho según sea necesario
+
+    # Insertar filas en el Treeview
+    for index, row in datos.iterrows():
+        tree.insert("", "end", values=list(row))
+
+    # Crear separadores entre las filas
+    tree.tag_configure('oddrow', background="white")
+    tree.tag_configure('evenrow', background="lightgrey")
+
+    for index, row_id in enumerate(tree.get_children()):
+        if index % 2 == 0:
+            tree.item(row_id, tags=('evenrow',))
+        else:
+            tree.item(row_id, tags=('oddrow',))
+
+    tree.pack(fill="both", expand=True)
+
+
     # Botón para imprimir las filas seleccionadas
     boton_imprimir = ctk.CTkButton(
         master=home_frame, text="guardar informacion", command=lambda: guardar_data())
