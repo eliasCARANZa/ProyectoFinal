@@ -89,7 +89,7 @@ def get_country_city(lat,long):
     return country,city
 
 # Definir la función para convertir UTM a latitud y longitud
-def utm_to_latlong(easting, northing, zone_number, zone_letter):
+def utm_to_latlong(easting, northing, zone_number):
     # Crear el proyector UTM
     utm_proj = pyproj.Proj(proj='utm', zone=zone_number, datum='WGS84')
     
@@ -97,8 +97,32 @@ def utm_to_latlong(easting, northing, zone_number, zone_letter):
     longitude, latitude = utm_proj(easting, northing, inverse=True)
     return round(latitude,2), round(longitude,2)
 
-def insertar_data(data:list):
-    pass
+def insertar_data(data, database_name, table_name):
+    """
+    Inserta una lista de datos en una tabla SQLite, convirtiendo las coordenadas UTM a latitud y longitud.
+
+    Parámetros:
+    data (list): Lista de diccionarios con los datos a insertar.
+    database_name (str): Nombre del archivo de la base de datos SQLite.
+    table_name (str): Nombre de la tabla donde se insertarán los datos.
+    """
+    # Convertir las coordenadas UTM a latitud y longitud
+    for row in data:
+        lat, long = utm_to_latlong(row['Easting'], row['Northing'], row['ZoneNumber'], row['ZoneLetter'])
+        row['Latitude'] = lat
+        row['Longitude'] = long
+    
+    # Crear un DataFrame a partir de los datos
+    df = pd.DataFrame(data)
+    
+    # Conectar a la base de datos SQLite
+    conn = sqlite3.connect(database_name)
+    
+    # Agregar el DataFrame a la tabla SQLite
+    df.to_sql(table_name, conn, if_exists='append', index=False)
+    
+    # Cerrar la conexión
+    conn.close()
     #necesitamos convertir las coordenadas UTM a lat long
 
 def combo_event2(value):
@@ -155,6 +179,7 @@ def calcular_distancia(RUT1,RUT2):
 def guardar_data(row_selector):
     print(row_selector.get())
     print(row_selector.table.values)
+    
 
 def editar_panel(root):
     global toplevel_window
@@ -169,7 +194,16 @@ def seleccionar_archivo():
     archivo = filedialog.askopenfilename(filetypes=[("Archivos CSV", "*.csv")])
     if archivo:
         print(f"Archivo seleccionado: {archivo}")
-        mostrar_datos(archivo)
+        try:
+            df = pd.read_csv(archivo)
+            # Eliminar espacios en los nombres de las columnas
+            df.columns = df.columns.str.replace(' ', '_')
+            # Agregar el DataFrame a la base de datos SQLite
+            agregar_df_a_sqlite(df, 'progra2024_final.db', 'mi_tabla')
+            # Leer el archivo CSV para mostrar los datos o realizar otras operaciones
+            leer_archivo_csv(archivo)
+        except Exception as e:
+            print(f"Error al leer el archivo CSV: {e}")
 
 def on_scrollbar_move(*args):
     canvas.yview(*args)
@@ -198,9 +232,9 @@ def mostrar_datos(datos):
     boton_imprimir = ctk.CTkButton(
         master=data_panel_superior, text="Eliminar dato", command=lambda: editar_panel(root),fg_color='purple',hover_color='red')
     boton_imprimir.grid(row=0, column=3, padx=(10, 0))
-    frame_scrollable = ctk.CTkScrollableFrame(master=home_frame, label_text="Frame")
-    frame_scrollable.grid(row=1, column=0, padx=20, pady=10, sticky="nsew")
-    
+
+
+
 def select_frame_by_name(name):
     home_button.configure(fg_color=("gray75", "gray25") if name == "home" else "transparent")
     frame_2_button.configure(fg_color=("gray75", "gray25") if name == "frame_2" else "transparent")
@@ -294,7 +328,7 @@ home_frame.grid_columnconfigure(0, weight=1)
 
 data_panel_superior = ctk.CTkFrame(home_frame, corner_radius=0,)
 data_panel_superior.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
-
+    
 data_panel_inferior = ctk.CTkFrame(home_frame, corner_radius=0)
 data_panel_inferior.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
 data_panel_inferior.grid_rowconfigure(0, weight=1)
