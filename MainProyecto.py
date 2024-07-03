@@ -4,7 +4,6 @@ import os
 import tkinter
 from PIL import Image
 from tkinter import filedialog
-import pandas as pd
 from CTkTable import CTkTable
 from CTkTableRowSelector import CTkTableRowSelector
 import tkintermapview
@@ -16,6 +15,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import numpy as np
 from tkinter import ttk
+
 
 def haversine(cordenada1,cordenada2):
     #Función para calcular la distancia entre 2 puntos a partir de la longitud
@@ -158,24 +158,31 @@ def center_window(window, width, height):
     window.geometry(f"{width}x{height}+{x}+{y}")
 
 def setup_toplevel(window):
-    window.geometry("400x300")
+    window.geometry("400x1000")
     window.title("Modificar datos")
     center_window(window, 400, 300)  # Centrar la ventana secundaria
     window.lift()  # Levanta la ventana secundaria
     window.focus_force()  # Forzar el enfoque en la ventana secundaria
     window.grab_set()  # Evita la interacción con la ventana principal
 
-    label = ctk.CTkLabel(window, text="ToplevelWindow")
+    label = ctk.CTkLabel(window, text="hola")
     label.pack(padx=20, pady=20)
 
-def calcular_distancia(RUT1,RUT2):
-    direccion1= ejecutar_query_sqlite('progra2024_final.db', 'personas_coordenadas', columns='Latitude,Longitude', where_column='RUT', where_value=RUT1)
-    direccion2= ejecutar_query_sqlite('progra2024_final.db', 'personas_coordenadas', columns='Latitude,Longitude', where_column='RUT', where_value=RUT2)
+def calcular_distancia(RUT1, RUT2):
+    direccion1 = ejecutar_query_sqlite('progra2024_final.db', 'personas_coordenadas', columns='Latitude,Longitude', where_column='RUT', where_value=RUT1)
+    direccion2 = ejecutar_query_sqlite('progra2024_final.db', 'personas_coordenadas', columns='Latitude,Longitude', where_column='RUT', where_value=RUT2)
+    
     if direccion1 and direccion2:
-        lat1, lan1 =direccion1[0]
-        lat2, lan2 =direccion2[0]
-        return haversine(lat1,lan1,lat2,lan2)
+        lat1, lon1 = direccion1[0]
+        lat2, lon2 = direccion2[0]
+        try:
+            return haversine((lat1, lon1), (lat2, lon2))
+        except Exception as e:
+            print(f"Error al calcular distacia: {e}")
+            return None
+    print("coordenadas no encontrada")
     return None
+
 
 def guardar_data(tree):
     rows = []
@@ -193,6 +200,22 @@ def editar_panel(root):
         setup_toplevel(toplevel_window)
     else:
         toplevel_window.focus()
+def select_row(event):
+    global selected_row
+    selected_item = tree.focus()  # Obtiene el ítem seleccionado en la tabla
+    if selected_item:
+        selected_row = selected_item
+    else:
+        selected_row = None
+def eliminar_dato():
+    global selected_row
+    if selected_row:
+        tree.delete(selected_row)
+        selected_row = None  # Limpiar la selección después de eliminar
+    else:
+        print("Por favor, selecciona una fila para eliminar.")
+
+
 
 # Función para manejar la selección del archivo
 def seleccionar_archivo():
@@ -210,6 +233,8 @@ def seleccionar_archivo():
         except Exception as e:
             print(f"Error al leer el archivo CSV: {e}")
 
+
+
 def on_scrollbar_move(*args):
     canvas.yview(*args)
     canvas.bbox("all")
@@ -223,6 +248,7 @@ def leer_archivo_csv(ruta_archivo):
 
 # Función para mostrar los datos en la tabla
 def mostrar_datos(datos):
+    global tree
     # Limpiar cualquier dato previo en el frame scrollable
     for widget in scrollable_frame.winfo_children():
         widget.destroy()
@@ -231,8 +257,7 @@ def mostrar_datos(datos):
     style = ttk.Style()
     style.configure("Treeview.Heading", font=("Helvetica", 10, "bold"), background="lightblue", foreground="black")
     style.configure("Treeview", rowheight=50)
-    style.map("Treeview.Heading", background=[("active", "blue")])
-    style.layout("Treeview", [('Treeview.treearea', {'sticky': 'nswe'})])  # Elimina los bordes
+    style.map("Treeview.Heading", background=[("active", "blue")]) # Elimina los bordes
 
     # Crear Treeview
     columns = list(datos.columns)
@@ -258,7 +283,7 @@ def mostrar_datos(datos):
             tree.item(row_id, tags=('oddrow',))
 
     tree.pack(fill="both", expand=True)
-
+    tree.bind('<ButtonRelease-1>', select_row)
 
     # Botón para imprimir las filas seleccionadas
     boton_imprimir = ctk.CTkButton(
@@ -272,7 +297,7 @@ def mostrar_datos(datos):
 
     # Botón para imprimir las filas seleccionadas
     boton_imprimir = ctk.CTkButton(
-        master=data_panel_superior, text="Eliminar dato", command=lambda: editar_panel(root),fg_color='purple',hover_color='red')
+        master=data_panel_superior, text="Eliminar dato", command=eliminar_dato, fg_color='purple',hover_color='red')
     boton_imprimir.grid(row=0, column=3, padx=(10, 0))
 
 
